@@ -1,7 +1,7 @@
 use std::io;
 
 fn main() -> io::Result<()> {
-    let mut total_joltage = 0u32;
+    let mut total_joltage: u64 = 0;
 
     for line in io::stdin().lines() {
         let line = line?;
@@ -14,20 +14,23 @@ fn main() -> io::Result<()> {
             .map(|c| c.to_digit(10).unwrap() as u8)
             .collect();
 
-        let msd = bank[..bank.len() - 1]
-            .iter()
-            .copied()
-            .enumerate()
-            .fold((None, 0),
-                  |max, (cur_i, cur_d)| if cur_d > max.1 { (Some(cur_i), cur_d) } else { max });
-        let lsd = bank
-            .iter()
-            .copied()
-            .enumerate()
-            .skip(msd.0.map_or(0, |i| i + 1))
-            .fold((None, 0),
-                  |max, (cur_i, cur_d)| if cur_d > max.1 { (Some(cur_i), cur_d) } else { max });
-        let value = u32::from(msd.1) * 10 + u32::from(lsd.1);
+        const NUM_BATTERIES: usize = 12;
+
+        let mut value = 0;
+        let mut start_i = 0;
+        assert!(bank.len() >= NUM_BATTERIES);
+
+        for iteration in 1..=NUM_BATTERIES {
+            let mut max_d = 0;
+            for i in start_i..(bank.len() - NUM_BATTERIES + iteration) {
+                if bank[i] > max_d {
+                    max_d = bank[i];
+                    start_i = i + 1;
+                }
+            }
+            value = 10 * value + u64::from(max_d);
+        }
+
         println!("Max: {value}");
         total_joltage += value;
     }
