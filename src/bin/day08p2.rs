@@ -1,6 +1,4 @@
 use std::{array, io};
-use std::cmp::Reverse;
-use std::collections::BTreeMap;
 
 fn sqr_distance(a: &[i64; 3], b: &[i64; 3]) -> i64 {
     fn sqr(x: i64) -> i64 { x * x }
@@ -46,6 +44,10 @@ impl UnionFind {
         dst_set
     }
 
+    fn set_size(&self, item_id: usize) -> usize {
+        self.set_sizes[self.resolve_set(item_id)]
+    }
+
     fn check_integrity(&self) {
         // Integrity check
         let mut recounts = vec![0; self.memberships.len()];
@@ -61,17 +63,6 @@ impl UnionFind {
     }
 }
 
-fn max_k<const K: usize, T: Copy + Ord>(it: impl Iterator<Item=T>) -> [Option<T>; K] {
-    let mut k_largest = [None; K];
-    for x in it {
-        let insert_idx = k_largest.iter().position(|o| o.is_none_or(|y| x > y));
-        if let Some(insert_idx) = insert_idx {
-            k_largest[insert_idx..].rotate_right(1);
-            k_largest[insert_idx] = Some(x);
-        }
-    }
-    k_largest
-}
 
 fn main() -> io::Result<()> {
     let mut points = Vec::new();
@@ -97,29 +88,22 @@ fn main() -> io::Result<()> {
         }
     }
 
-    // Find 1000 pairs with the shortest distances
-    let head_len = distances.len().min(1000);
-    distances.select_nth_unstable_by_key(head_len - 1, |(d, _)| *d);
-    let head = &mut distances[..head_len];
-    head.sort_unstable_by_key(|(_, ij)| *ij);
-
     // Union-find merge all the shortest pairs
+    distances.sort_unstable_by_key(|(d, _)| *d);
     let mut sets = UnionFind::new(points.len());
-    for &(_, (i, j)) in &*head {
-        sets.merge_items(i, j);
+    let mut last_pair = None;
+    for &(_, (i, j)) in &distances {
+        let result_set = sets.merge_items(i, j);
+        if sets.set_size(result_set) == points.len() {
+            last_pair = Some((i, j));
+            break;
+        }
     }
-    println!("membership: {:?}", sets.memberships.iter().enumerate().collect::<BTreeMap<_, _>>());
-    println!("counts: {:?}", sets.set_sizes.iter().enumerate().collect::<BTreeMap<_, _>>());
-
-    // Find k=3 largest sets
     sets.check_integrity();
-    let mut set_counts = sets.set_sizes;
-    set_counts.select_nth_unstable_by_key(3 - 1, |&x| Reverse(x));
-    let k_largest = &set_counts[..3];
-    println!("k_largest: {k_largest:?}");
 
-    let size_product: usize = k_largest.iter().copied().filter(|x| *x != 0).product();
-    println!("Result: {size_product}");
+    if let Some((i, j)) = last_pair {
+        println!("Result: {}", points[i][0] * points[j][0]);
+    }
 
     Ok(())
 }
